@@ -9,3 +9,4 @@ class Chunk:
         self.type_ = type_
         self.data = data
         self.crc = crc
+
