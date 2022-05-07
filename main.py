@@ -1,7 +1,13 @@
 from binascii import crc32
-
+import numpy as np
+import matplotlib.pyplot as plt
+from skimage.io import imread, imshow, imsave
+from skimage.color import rgb2hsv, rgb2gray, rgb2yuv, rgba2rgb
+from skimage import color, exposure, transform
+from skimage.exposure import equalize_hist
 
 class PNG:
+    SIGNATURE = b'\x89PNG\r\n\x1a\n'
 
     def __init__(self, fname=None):
         self.width = 0
@@ -24,7 +30,7 @@ class PNG:
     def _read_chunks(self, fname):
         self.chunks.clear()
         with open(fname, 'rb') as a_file:
-            if a_file.read(8) != b'\x89PNG\r\n\x1a\n':
+            if a_file.read(8) != PNG.SIGNATURE:
                 raise Exception('Signature error')
             datl = a_file.read(4)
             while datl != b'':
@@ -127,11 +133,35 @@ class PNG:
         print(f'  + interlace method: {int.from_bytes(data[12:13], "big")}')
 
     def read_png(self, fname):
-        """Loading png images"""
         self._read_chunks(fname)
         for index, chunk in enumerate(self.chunks):
             self.funcs.get(chunk[0], self._def_chunk)(index, chunk[0], chunk[1])
 
+    def save_png(self, fname, chunks_to_remove = None):
+        with open(fname, 'wb') as file:
+            file.write(PNG.SIGNATURE)
+            for chunk in self.chunks:
+                if chunks_to_remove is None or chunk[0] not in chunks_to_remove:
+                    file.write((len(chunk[1])).to_bytes(4, 'big'))
+                    file.write(chunk[0])
+                    file.write(chunk[1])
+                    file.write(crc32(chunk[0] + chunk[1]).to_bytes(4, 'big'))
 
 if __name__ == '__main__':
-    PPP = PNG('test2.png')
+    png_file = PNG('test.png')
+
+    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG']
+    png_file.save_png('out.png', chunks)
+
+    dark_image = rgb2gray(rgba2rgb(imread('test.png')))
+    dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
+
+    imsave("fft.png", np.log(abs(dark_image_fft)))
+
+    from PIL import Image
+    im = Image.open('out.png')
+    im.show()
+
+    Image.open('fft.png').show()
+
+
