@@ -152,11 +152,15 @@ class PNG:
 
 
 if __name__ == '__main__':
+    print('Chunki w pliku przed animizacja:')
     image_name = 'test.png'
     png_file = PNG(image_name)
 
-    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG']
+    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD']
     png_file.save_png('out.png', chunks)
+
+    print('Chunki w pliku po animizacji:')
+    cleared_png = PNG('out.png')
     image = rgba2rgb(cv2.imread(image_name, cv2.IMREAD_UNCHANGED))
     dark_image = rgb2gray(image)
     dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
