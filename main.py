@@ -1,4 +1,6 @@
 from binascii import crc32
+
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.io import imread, imshow, imsave
@@ -118,19 +120,19 @@ class PNG:
         self.bit_depth = int.from_bytes(data[8:9], 'big')
         self.color_type = int.from_bytes(data[9:10], 'big')
         print('- IHDR Chunk')
-        print(f'  + width : {self.width}')
-        print(f'  + height: {self.height}')
-        print(f'  + bit depth: {self.bit_depth}')
+        print(f'  + szerokosc : {self.width}')
+        print(f'  + wysokosc: {self.height}')
+        print(f'  + glebia bitowa: {self.bit_depth}')
         _ = {
-            0: 'Grayscale',
+            0: 'Skala szarosci',
             2: 'Truecolor',
-            3: 'Indexed-color',
-            4: 'Greyscale with alpha',
-            6: 'Truecolor with alpha'}
-        print(f'  + color type: {_[self.color_type]}')
-        print(f'  + compression method: {int.from_bytes(data[10:11], "big")}')
-        print(f'  + filter method: {int.from_bytes(data[11:12], "big")}')
-        print(f'  + interlace method: {int.from_bytes(data[12:13], "big")}')
+            3: 'Kolor indeksowany',
+            4: 'Skala szarosci z kanalem alfa',
+            6: 'Truecolor z kanalem alfa'}
+        print(f'  + typ przestrzeni bitowej: {_[self.color_type]}')
+        print(f'  + metoda kompresji: {int.from_bytes(data[10:11], "big")}')
+        print(f'  + metoda filtrowania: {int.from_bytes(data[11:12], "big")}')
+        print(f'  + metoda przeplotu: {int.from_bytes(data[12:13], "big")}')
 
     def read_png(self, fname):
         self._read_chunks(fname)
@@ -147,21 +149,24 @@ class PNG:
                     file.write(chunk[1])
                     file.write(crc32(chunk[0] + chunk[1]).to_bytes(4, 'big'))
 
+
+
 if __name__ == '__main__':
-    png_file = PNG('test.png')
+    image_name = 'test.png'
+    png_file = PNG(image_name)
 
     chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG']
     png_file.save_png('out.png', chunks)
-
-    dark_image = rgb2gray(rgba2rgb(imread('test.png')))
+    image = rgba2rgb(cv2.imread(image_name, cv2.IMREAD_UNCHANGED))
+    dark_image = rgb2gray(image)
     dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
-
+    inverse_fft = np.fft.ifft2(dark_image_fft)
     imsave("fft.png", np.log(abs(dark_image_fft)))
-
+    imsave("ifft.png", np.log(abs(inverse_fft)))
     from PIL import Image
     im = Image.open('out.png')
     im.show()
 
     Image.open('fft.png').show()
-
+    Image.open('ifft.png').show()
 
