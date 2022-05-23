@@ -153,10 +153,10 @@ class PNG:
 
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
-    image_name = 'test.png'
+    image_name = 'dziadyga.png'
     png_file = PNG(image_name)
 
-    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD']
+    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT', b'tRNS']
     png_file.save_png('out.png', chunks)
 
     print('Chunki w pliku po animizacji:')
