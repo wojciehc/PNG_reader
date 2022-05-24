@@ -2,11 +2,9 @@ from binascii import crc32
 
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 from skimage.io import imread, imshow, imsave
 from skimage.color import rgb2hsv, rgb2gray, rgb2yuv, rgba2rgb
-from skimage import color, exposure, transform
-from skimage.exposure import equalize_hist
+
 
 class PNG:
     SIGNATURE = b'\x89PNG\r\n\x1a\n'
@@ -31,17 +29,17 @@ class PNG:
 
     def _read_chunks(self, fname):
         self.chunks.clear()
-        with open(fname, 'rb') as a_file:
-            if a_file.read(8) != PNG.SIGNATURE:
+        with open(fname, 'rb') as _file:
+            if _file.read(8) != PNG.SIGNATURE:
                 raise Exception('Signature error')
-            datl = a_file.read(4)
-            while datl != b'':
-                length = int.from_bytes(datl, 'big')
-                data = a_file.read(4 + length)
-                if int.from_bytes(a_file.read(4), 'big') != crc32(data):
-                    raise Exception('CRC Checkerror')
+            _data = _file.read(4)
+            while _data != b'':
+                length = int.from_bytes(_data, 'big')
+                data = _file.read(4 + length)
+                if int.from_bytes(_file.read(4), 'big') != crc32(data):
+                    raise Exception('CRC error')
                 self.chunks.append([data[:4], data[4:]])
-                datl = a_file.read(4)
+                _data = _file.read(4)
 
     def _def_chunk(self, index, name, data):
         print(f'+ {name.decode("utf-8")} Chunk')
@@ -70,7 +68,7 @@ class PNG:
         _ = index, data
         _ = divmod(len(data), 3)
         if _[1] != 0:
-            raise Exception('pallet')
+            raise Exception('pallet error')
         for pin in range(_[0]):
             color = data[pin * 3], data[pin * 3 + 1], data[pin * 3 + 2]
             print(f'  - #{color[0]:02X}{color[1]:02X}{color[2]:02X}')
@@ -80,30 +78,30 @@ class PNG:
         print(f'- {name.decode("utf-8")} Chunk')
         _ = index
         length = len(data)
-        if self.color_type == 0:
+        if self.color_type == 0: #szarosc
             if length != 2:
                 raise Exception('format error')
             print(f'  - Wartość szarej próbki: {int.from_bytes(data, "big")}')
-        elif self.color_type == 2:
+        elif self.color_type == 2: #true color
             if length != 6:
                 raise Exception('format error')
             print(f'  - Wartość czerwonej (R) próbki: {int.from_bytes(data[0:2], "big")}')
             print(f'  - Wartość niebieskiej (B) próbki: {int.from_bytes(data[2:4], "big")}')
             print(f'  - Wartość zielonej (G) próbki: {int.from_bytes(data[4:6], "big")}')
-        elif self.color_type == 3:
+        elif self.color_type == 3: #kolor indeksowany
             for a_i in range(len(self.pallet)):
                 _ = self.pallet[a_i]
-                print(f'  - {data[a_i]:02X}(#{_[0]:02X}{_[1]:02X}{_[2]:02X})')
+                #print(f'  - {data[a_i]:02X}(#{_[0]:02X}{_[1]:02X}{_[2]:02X})')
 
     def _phys_chunk(self, index, name, data):
         print(f'- {name.decode("utf-8")} Chunk')
         _ = index
         _ = data[:4], data[4:8], data[8:9]
-        spec = ''
+        unit = ''
         if _[2] == b'\01':
             spec = 'px/m'
-        print(f'  - Pixel na jednostke, os X {int.from_bytes(_[0], "big")}' + spec)
-        print(f'  - Pixel na jednostke, os Y {int.from_bytes(_[1], "big")}' + spec)
+        print(f'  - Pixel na jednostke, os X {int.from_bytes(_[0], "big")}' + unit)
+        print(f'  - Pixel na jednostke, os Y {int.from_bytes(_[1], "big")}' + unit)
 
     def _text_chunk(self, index, name, data):
         _ = index, name
@@ -114,7 +112,7 @@ class PNG:
     def _ihdr_chunk(self, index, name, data):
         if index != 0:
             raise Exception('first chunk')
-        _ = name
+
         self.width = int.from_bytes(data[:4], 'big')
         self.height = int.from_bytes(data[4:8], 'big')
         self.bit_depth = int.from_bytes(data[8:9], 'big')
@@ -150,12 +148,15 @@ class PNG:
                     file.write(crc32(chunk[0] + chunk[1]).to_bytes(4, 'big'))
 
 
-
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
-    image_name = 'piecho.png'
+
+    # TUTAJ NALEZY WPISAC NAZWE PLIKU
+    image_name = 'dziadyga.png'
+
     png_file = PNG(image_name)
 
+    #Tablica chunkow ktorych chcemy sie pozbyc podczas procesu animizacji
     chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT',
               b'tRNS', b'cHRM', b'sRGB', b'iCCP', b'KGD', b'sPLT', b'hIST']
     png_file.save_png('out.png', chunks)
@@ -170,13 +171,16 @@ if __name__ == '__main__':
     dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
     inverse_fft = np.fft.ifft2(np.fft.ifftshift(dark_image_fft))
     ift_real = inverse_fft.real
+    imsave("angle.png", np.angle(dark_image_fft))
     imsave("fft.png", np.log(abs(dark_image_fft)))
     imsave("ifft.png", ift_real)
     from PIL import Image
     im = Image.open('out.png')
     im.show()
 
+
     Image.open("grey.png").show()
     Image.open('fft.png').show()
     Image.open('ifft.png').show()
+    Image.open('angle.png').show()
 
