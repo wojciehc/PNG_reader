@@ -52,18 +52,18 @@ class PNG:
         print(f'- {name.decode("utf-8")} Chunk')
         _ = index
         _ = {
-            0: 'Perceptual',
-            1: 'Relative colorimetric',
-            2: 'Saturation',
-            3: 'Absolute colorimetric'
+            0: 'Perceptualna',
+            1: 'Kolorymetria względna',
+            2: 'Saturacja',
+            3: 'Kolorymetria absolutna'
         }
         index = int.from_bytes(data, 'big')
-        print(f'  + Rendering intent: {_[index]}')
+        print(f'  + Metoda renderowania:: {_[index]}')
 
     def _gama_chunk(self, index, name, data):
         print(f'- {name.decode("utf-8")} Chunk')
         _ = index
-        print(f'  + Image gamma: {int.from_bytes(data, "big")}')
+        print(f'  + Gamma obrazu: {int.from_bytes(data, "big")}')
 
     def _plte_chunk(self, index, name, data):
         print(f'- {name.decode("utf-8")} Chunk')
@@ -83,13 +83,13 @@ class PNG:
         if self.color_type == 0:
             if length != 2:
                 raise Exception('format error')
-            print(f'  - Grey sample value: {int.from_bytes(data, "big")}')
+            print(f'  - Wartość szarej próbki: {int.from_bytes(data, "big")}')
         elif self.color_type == 2:
             if length != 6:
                 raise Exception('format error')
-            print(f'  - R sample value: {int.from_bytes(data[0:2], "big")}')
-            print(f'  - B sample value: {int.from_bytes(data[2:4], "big")}')
-            print(f'  - G sample value: {int.from_bytes(data[4:6], "big")}')
+            print(f'  - Wartość czerwonej (R) próbki: {int.from_bytes(data[0:2], "big")}')
+            print(f'  - Wartość niebieskiej (B) próbki: {int.from_bytes(data[2:4], "big")}')
+            print(f'  - Wartość zielonej (G) próbki: {int.from_bytes(data[4:6], "big")}')
         elif self.color_type == 3:
             for a_i in range(len(self.pallet)):
                 _ = self.pallet[a_i]
@@ -102,8 +102,8 @@ class PNG:
         spec = ''
         if _[2] == b'\01':
             spec = 'px/m'
-        print(f'  - Pixel per unit, X axis {int.from_bytes(_[0], "big")}' + spec)
-        print(f'  - Pixel per unit, Y axis {int.from_bytes(_[1], "big")}' + spec)
+        print(f'  - Pixel na jednostke, os X {int.from_bytes(_[0], "big")}' + spec)
+        print(f'  - Pixel na jednostke, os Y {int.from_bytes(_[1], "big")}' + spec)
 
     def _text_chunk(self, index, name, data):
         _ = index, name
@@ -156,7 +156,8 @@ if __name__ == '__main__':
     image_name = 'dziadyga.png'
     png_file = PNG(image_name)
 
-    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT', b'tRNS']
+    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT',
+              b'tRNS', b'cHRM', b'sRGB', b'iCCP', b'KGD', b'sPLT', b'hIST']
     png_file.save_png('out.png', chunks)
 
     print('Chunki w pliku po animizacji:')
