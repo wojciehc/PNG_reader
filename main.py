@@ -153,7 +153,7 @@ class PNG:
 
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
-    image_name = 'dziadyga.png'
+    image_name = 'piecho.png'
     png_file = PNG(image_name)
 
     chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT',
@@ -162,16 +162,21 @@ if __name__ == '__main__':
 
     print('Chunki w pliku po animizacji:')
     cleared_png = PNG('out.png')
+
     image = rgba2rgb(cv2.imread(image_name, cv2.IMREAD_UNCHANGED))
     dark_image = rgb2gray(image)
+    imsave("grey.png", dark_image)
+
     dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
-    inverse_fft = np.fft.ifft2(dark_image_fft)
+    inverse_fft = np.fft.ifft2(np.fft.ifftshift(dark_image_fft))
+    ift_real = inverse_fft.real
     imsave("fft.png", np.log(abs(dark_image_fft)))
-    imsave("ifft.png", np.log(abs(inverse_fft)))
+    imsave("ifft.png", ift_real)
     from PIL import Image
     im = Image.open('out.png')
     im.show()
 
+    Image.open("grey.png").show()
     Image.open('fft.png').show()
     Image.open('ifft.png').show()
 
