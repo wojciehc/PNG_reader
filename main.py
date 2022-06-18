@@ -1,9 +1,78 @@
+import random
 from binascii import crc32
 
+import sympy
 import cv2
 import numpy as np
 from skimage.io import imread, imshow, imsave
 from skimage.color import rgb2hsv, rgb2gray, rgb2yuv, rgba2rgb
+
+
+# nwd
+def gcd(a, b):
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+
+#odwrotnosc
+def multiplicative_inverse(e, phi):
+    d = 0
+    x1 = 0
+    x2 = 1
+    y1 = 1
+    temp_phi = phi
+
+    while e > 0:
+        temp1 = temp_phi / e
+        temp2 = temp_phi - temp1 * e
+        temp_phi = e
+        e = temp2
+
+        x = x2 - temp1 * x1
+        y = d - temp1 * y1
+
+        x2 = x1
+        x1 = x
+        d = y1
+        y1 = y
+
+    if temp_phi == 1:
+        return d + phi
+
+
+def keyGenerator(p, q):
+    if not(sympy.isprime(q) and sympy.isprime(p)):
+        raise ValueError('ktoras z liczb nie jest pierwsza')
+    elif p == q:
+        raise ValueError('p i q nie moga byc takie same')
+
+    n = p*q
+    phi = (p-1) * (q-1)
+
+    e = random.randrange(1, phi)
+
+    g = gcd(e, phi)
+    while g != 1:
+        e = random.randrange(1, phi)
+        g = gcd(e, phi)
+
+    d = multiplicative_inverse(e, phi)
+    return (e, n), (d, n)
+
+
+def encrypt(public_key, text):
+    key, n = public_key
+    cipher = [(ord(char) ** key) % n for char in text]
+
+    return cipher
+
+
+def decrypt(public_key, text):
+    key, n = public_key
+    decrypted = [chr((char ** key) % n) for char in text]
+
+    return ''.join(text)
 
 
 class PNG:
@@ -147,40 +216,58 @@ class PNG:
                     file.write(chunk[1])
                     file.write(crc32(chunk[0] + chunk[1]).to_bytes(4, 'big'))
 
+    def crypt_png(self, fname, chunks_to_encrypt = None):
+        public, private = keyGenerator(sympy.randprime(0, 1000000), sympy.randprime(0, 1000000))
+        with open(fname, 'wb') as file:
+            file.write(PNG.SIGNATURE)
+            for chunk in self.chunks:
+                data = chunk[1]
+                if chunk[0] in chunks_to_encrypt:
+                    data = encrypt(public, chunk[1])
+
+                file.write((len(data)).to_bytes(4, 'big'))
+                file.write(chunk[0])
+                file.write(data)
+                file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
+
 
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
 
     # TUTAJ NALEZY WPISAC NAZWE PLIKU
-    image_name = 'dziadyga.png'
+    image_name = 'test.png'
+
 
     png_file = PNG(image_name)
 
+
+
     #Tablica chunkow ktorych chcemy sie pozbyc podczas procesu animizacji
-    chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT',
-              b'tRNS', b'cHRM', b'sRGB', b'iCCP', b'KGD', b'sPLT', b'hIST']
-    png_file.save_png('out.png', chunks)
 
-    print('Chunki w pliku po animizacji:')
-    cleared_png = PNG('out.png')
-
-    image = rgba2rgb(cv2.imread(image_name, cv2.IMREAD_UNCHANGED))
-    dark_image = rgb2gray(image)
-    imsave("grey.png", dark_image)
-
-    dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
-    inverse_fft = np.fft.ifft2(np.fft.ifftshift(dark_image_fft))
-    ift_real = inverse_fft.real
-    imsave("angle.png", np.angle(dark_image_fft))
-    imsave("fft.png", np.log(abs(dark_image_fft)))
-    imsave("ifft.png", ift_real)
-    from PIL import Image
-    im = Image.open('out.png')
-    im.show()
-
-
-    Image.open("grey.png").show()
-    Image.open('fft.png').show()
-    Image.open('ifft.png').show()
-    Image.open('angle.png').show()
+    # chunks = [b'eXIf', b'tEXt', b'tIME', b'zTXt', b'iTXt', b'dSIG', b'gAMA', b'pHYs', b'iCCP', b'bKGD', b'sBIT',
+    #           b'tRNS', b'cHRM', b'sRGB', b'iCCP', b'KGD', b'sPLT', b'hIST']
+    # png_file.save_png('out.png', chunks)
+    #
+    # print('Chunki w pliku po animizacji:')
+    # cleared_png = PNG('out.png')
+    #
+    # image = rgba2rgb(cv2.imread(image_name, cv2.IMREAD_UNCHANGED))
+    # dark_image = rgb2gray(image)
+    # imsave("grey.png", dark_image)
+    #
+    # dark_image_fft = np.fft.fftshift(np.fft.fft2(dark_image))
+    # inverse_fft = np.fft.ifft2(np.fft.ifftshift(dark_image_fft))
+    # ift_real = inverse_fft.real
+    # imsave("angle.png", np.angle(dark_image_fft))
+    # imsave("fft.png", np.log(abs(dark_image_fft)))
+    # imsave("ifft.png", ift_real)
+    # from PIL import Image
+    # im = Image.open('out.png')
+    # im.show()
+    #
+    #
+    # Image.open("grey.png").show()
+    # Image.open('fft.png').show()
+    # Image.open('ifft.png').show()
+    # Image.open('angle.png').show()
 
