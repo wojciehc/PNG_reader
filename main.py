@@ -1,5 +1,8 @@
 import random
 from binascii import crc32
+import zlib
+import sys
+import itertools
 
 import sympy
 import cv2
@@ -15,8 +18,25 @@ def gcd(a, b):
     return a
 
 
+def make_chunks(iterable, n, fillvalue=None):
+    args = [iter(iterable)] * n
+    return (bytes(x) for x in itertools.zip_longest(fillvalue=fillvalue, *args))
+
+def eea(a, b):
+    if b == 0:
+        return (1, 0)
+    (q, r) = (a // b, a % b)
+    (s, t) = eea(b, r)
+    return (t, s - (q * t))
+
 #odwrotnosc
-def multiplicative_inverse(e, phi):
+def multiplicative_inverse(x,y):
+    inv = eea(x, y)[0]
+    if inv < 1:
+        inv += y
+    return inv
+
+def multiplicative_inverse2(e, phi):
     d = 0
     x1 = 0
     x2 = 1
@@ -42,6 +62,7 @@ def multiplicative_inverse(e, phi):
 
 
 def keyGenerator(p, q):
+    #return (17, 3233), (413, 3233)
     if not(sympy.isprime(q) and sympy.isprime(p)):
         raise ValueError('ktoras z liczb nie jest pierwsza')
     elif p == q:
@@ -61,18 +82,26 @@ def keyGenerator(p, q):
     return (e, n), (d, n)
 
 
-def encrypt(public_key, text):
+def encrypt(public_key, data):
     key, n = public_key
-    cipher = [(ord(char) ** key) % n for char in text]
+    chunks = list(make_chunks(data, 1))
+    integers = [int.from_bytes(chunk, 'big') for chunk in chunks]
+    if max(integers) > 255:
+        raise Exception()
+    cipher = [pow(i, key, n) for i in integers]
+    out_data = b''.join([i.to_bytes(4, 'big') for i in cipher])
+    return out_data
 
-    return cipher
 
-
-def decrypt(public_key, text):
-    key, n = public_key
-    decrypted = [chr((char ** key) % n) for char in text]
-
-    return ''.join(text)
+def decrypt(private_key, data):
+    key, n = private_key
+    chunks = list(make_chunks(data, 4))
+    integers = [int.from_bytes(chunk, 'big') for chunk in chunks]
+    decrypted = [pow(i, key, n) for i in integers]
+    #if max(decrypted) > 255:
+        #raise Exception()
+    out_data = b''.join([int.to_bytes(min(255, i), 1, 'big') for i in decrypted])
+    return out_data
 
 
 class PNG:
@@ -216,20 +245,41 @@ class PNG:
                     file.write(chunk[1])
                     file.write(crc32(chunk[0] + chunk[1]).to_bytes(4, 'big'))
 
-    def crypt_png(self, fname, chunks_to_encrypt = None):
-        public, private = keyGenerator(sympy.randprime(0, 1000000), sympy.randprime(0, 1000000))
+    def encrypt_png(self, fname, public_key):
         with open(fname, 'wb') as file:
             file.write(PNG.SIGNATURE)
             for chunk in self.chunks:
                 data = chunk[1]
-                if chunk[0] in chunks_to_encrypt:
-                    data = encrypt(public, chunk[1])
+                if chunk[0] == b'IDAT':
+                    data = zlib.decompress(chunk[1])
+                    encrypted_data = encrypt(public_key, data)
+                    #data = zlib.compress(encrypted_data)
+                    compressor = zlib.compressobj()
+                    data = compressor.compress(encrypted_data)
+                    data += compressor.flush()
 
                 file.write((len(data)).to_bytes(4, 'big'))
                 file.write(chunk[0])
                 file.write(data)
                 file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
 
+    def decrypt_png(self, fname, private_key):
+        with open(fname, 'wb') as file:
+            file.write(PNG.SIGNATURE)
+            for chunk in self.chunks:
+                data = chunk[1]
+                if chunk[0] == b'IDAT':
+                    data = zlib.decompress(chunk[1])
+                    decrypted_data = decrypt(public, data)
+                    #data = zlib.compress(encrypted_data)
+                    compressor = zlib.compressobj()
+                    data = compressor.compress(decrypted_data)
+                    data += compressor.flush()
+
+                file.write((len(data)).to_bytes(4, 'big'))
+                file.write(chunk[0])
+                file.write(data)
+                file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
 
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
@@ -237,10 +287,28 @@ if __name__ == '__main__':
     # TUTAJ NALEZY WPISAC NAZWE PLIKU
     image_name = 'test.png'
 
-
     png_file = PNG(image_name)
 
+    public, private = keyGenerator(sympy.randprime(10, 65535), sympy.randprime(10, 65535))
 
+
+    #a = "Alamakota123"
+    #b = a.encode('utf8')
+    b = b''.join([int.to_bytes(c, 1, 'big') for c in range(256)])
+    c = encrypt(public, b)
+    d = decrypt(private, c)
+    if b != d:
+        raise Exception()
+
+    png_file.encrypt_png('encrypted_out.png', public)
+
+    encrypted_png_file = PNG('encrypted_out.png')
+    encrypted_png_file.decrypt_png('decrypted_out.png', private)
+
+    from PIL import Image
+    Image.LOAD_TRUNCATED_IMAGES = True
+    im = Image.open('out.png')
+    im.show()
 
     #Tablica chunkow ktorych chcemy sie pozbyc podczas procesu animizacji
 
