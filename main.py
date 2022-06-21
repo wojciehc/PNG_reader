@@ -7,6 +7,8 @@ import itertools
 import sympy
 import cv2
 import numpy as np
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 from skimage.io import imread, imshow, imsave
 from skimage.color import rgb2hsv, rgb2gray, rgb2yuv, rgba2rgb
 
@@ -265,6 +267,7 @@ class PNG:
                 file.write(data)
                 file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
 
+
     def decrypt_png(self, fname, private_key):
         with open(fname, 'wb') as file:
             file.write(PNG.SIGNATURE)
@@ -283,6 +286,43 @@ class PNG:
                 file.write(data)
                 file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
 
+    def encrypt_png_rsa(self, fname, public_key):
+        with open(fname, 'wb') as file:
+            file.write(PNG.SIGNATURE)
+            for chunk in self.chunks:
+                data = chunk[1]
+                if chunk[0] == b'IDAT':
+                    data = zlib.decompress(chunk[1])
+                    encryptor = PKCS1_OAEP.new(public_key)
+                    encrypted_data = encryptor.encrypt(data)
+                    data = zlib.compress(encrypted_data)
+                    #compressor = zlib.compressobj()
+                    #data = compressor.compress(encrypted_data)
+                    #data += compressor.flush()
+
+                file.write((len(data)).to_bytes(4, 'big'))
+                file.write(chunk[0])
+                file.write(data)
+                file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
+
+    def decrypt_png_rsa(self, fname, private_key):
+        with open(fname, 'wb') as file:
+            file.write(PNG.SIGNATURE)
+            for chunk in self.chunks:
+                data = chunk[1]
+                if chunk[0] == b'IDAT':
+                    data = zlib.decompress(chunk[1])
+                    decrypted_data = rsa.decrypt(data, private_key).decode()
+                    data = zlib.compress(decrypted_data)
+                    #compressor = zlib.compressobj()
+                    #data = compressor.compress(encrypted_data)
+                    #data += compressor.flush()
+
+                file.write((len(data)).to_bytes(4, 'big'))
+                file.write(chunk[0])
+                file.write(data)
+                file.write(crc32(chunk[0] + data).to_bytes(4, 'big'))
+
 if __name__ == '__main__':
     print('Chunki w pliku przed animizacja:')
 
@@ -293,7 +333,6 @@ if __name__ == '__main__':
 
     public, private = keyGenerator(sympy.randprime(10, 65535), sympy.randprime(10, 65535))
 
-
     #a = "Alamakota123"
     #b = a.encode('utf8')
     b = b''.join([int.to_bytes(c, 1, 'big') for c in range(256)])
@@ -303,9 +342,13 @@ if __name__ == '__main__':
         raise Exception()
 
     png_file.encrypt_png('encrypted_out.png', public)
+    png_file.encrypt_png_rsa('encrypted_out_rsa.png', public)
 
     encrypted_png_file = PNG('encrypted_out.png')
     encrypted_png_file.decrypt_png('decrypted_out.png', private)
+
+    encrypted_rsa_png_file = PNG('encrypted_out_rsa.png')
+    encrypted_rsa_png_file.decrypt_png_rsa('decrypted_out_png_rsa.png', private)
 
     #from PIL import Image
     #Image.LOAD_TRUNCATED_IMAGES = True
