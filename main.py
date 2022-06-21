@@ -88,6 +88,8 @@ def encrypt(public_key, data):
     integers = [int.from_bytes(chunk, 'big') for chunk in chunks]
     if max(integers) > 255:
         raise Exception()
+    if min(integers) < 0:
+        raise Exception()
     cipher = [pow(i, key, n) for i in integers]
     out_data = b''.join([i.to_bytes(4, 'big') for i in cipher])
     return out_data
@@ -253,10 +255,10 @@ class PNG:
                 if chunk[0] == b'IDAT':
                     data = zlib.decompress(chunk[1])
                     encrypted_data = encrypt(public_key, data)
-                    #data = zlib.compress(encrypted_data)
-                    compressor = zlib.compressobj()
-                    data = compressor.compress(encrypted_data)
-                    data += compressor.flush()
+                    data = zlib.compress(encrypted_data)
+                    #compressor = zlib.compressobj()
+                    #data = compressor.compress(encrypted_data)
+                    #data += compressor.flush()
 
                 file.write((len(data)).to_bytes(4, 'big'))
                 file.write(chunk[0])
@@ -270,11 +272,11 @@ class PNG:
                 data = chunk[1]
                 if chunk[0] == b'IDAT':
                     data = zlib.decompress(chunk[1])
-                    decrypted_data = decrypt(public, data)
-                    #data = zlib.compress(encrypted_data)
-                    compressor = zlib.compressobj()
-                    data = compressor.compress(decrypted_data)
-                    data += compressor.flush()
+                    decrypted_data = decrypt(private_key, data)
+                    data = zlib.compress(decrypted_data)
+                    #compressor = zlib.compressobj()
+                    #data = compressor.compress(decrypted_data)
+                    #data += compressor.flush()
 
                 file.write((len(data)).to_bytes(4, 'big'))
                 file.write(chunk[0])
@@ -305,10 +307,10 @@ if __name__ == '__main__':
     encrypted_png_file = PNG('encrypted_out.png')
     encrypted_png_file.decrypt_png('decrypted_out.png', private)
 
-    from PIL import Image
-    Image.LOAD_TRUNCATED_IMAGES = True
-    im = Image.open('out.png')
-    im.show()
+    #from PIL import Image
+    #Image.LOAD_TRUNCATED_IMAGES = True
+    #im = Image.open('out.png')
+    #im.show()
 
     #Tablica chunkow ktorych chcemy sie pozbyc podczas procesu animizacji
 
